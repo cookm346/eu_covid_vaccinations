@@ -1,0 +1,50 @@
+---
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(janitor)
+
+data <- read_csv("data/eu_vax_deaths.csv")
+
+#https://ourworldindata.org/grapher/gdp-per-capita-worldbank?tab=table
+gdp <- read_csv("data/gdp-per-capita-worldbank.csv")
+
+gdp <- gdp %>%
+    clean_names() %>%
+    transmute(country = entity, 
+              gdp = gdp_per_capita_ppp_constant_2017_international,
+              year) %>%
+    group_by(country) %>%
+    filter(year == max(year)) %>%
+    ungroup() %>%
+    select(-year)
+
+codes <- read_csv("https://raw.githubusercontent.com/lukes/ISO-3166-Countries-with-Regional-Codes/master/all/all.csv")
+
+codes <- codes %>%
+    clean_names() %>%
+    transmute(country = name, 
+              country_code = alpha_2)
+
+gdp <- gdp %>%
+    left_join(codes, by = "country")
+
+data <- data %>%
+    left_join(gdp)
+```
+
+```{r}
+data %>%
+    ggplot(aes(vax_rate, death_rate)) +
+    geom_point() +
+    geom_smooth(method = "lm") +
+    geom_text(aes(label = country), check_overlap = TRUE)
+
+summary(lm(death_rate ~ vax_rate + gdp, data = data))
+```
